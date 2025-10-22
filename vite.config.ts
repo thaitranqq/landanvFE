@@ -4,6 +4,10 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  base: '/', // Ensure base is set to '/' for Azure deployment
+  build: {
+    outDir: 'dist' // Explicitly define output directory
+  },
   server: {
     proxy: {
       '/api/v1': {

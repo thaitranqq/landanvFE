@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useState, ReactNode, useCallback, useEffect } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect } from 'react';
 import type { Product, ProductDTO, PageProductDTO } from '../types/api';
 import { useDebounce } from '../hooks/useDebounce';
 import { productService } from '../services/api/ProductService';
@@ -10,14 +10,14 @@ interface Filters {
 }
 
 interface ProductContextType {
-  products: ProductDTO[];
+  products: Product[];
   loading: boolean;
   loadingMore: boolean;
   error: string | null;
   page: number;
   totalPages: number;
   loadMoreProducts: () => void;
-  goToPage: (pageNumber: number) => void; // New function for direct page navigation
+  goToPage: (pageNumber: number) => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   filters: Filters;
@@ -27,6 +27,9 @@ interface ProductContextType {
   retryFetch: () => Promise<void>;
   isOffline: boolean;
   resetError: () => void;
+  comparisonList: Product[];
+  toggleCompare: (product: Product) => void;
+  clearCompare: () => void;
 }
 
 export const ProductContext = createContext<ProductContextType | undefined>(undefined);
@@ -34,7 +37,8 @@ export const ProductContext = createContext<ProductContextType | undefined>(unde
 const MAX_RETRIES = 3;
 
 export const ProductProvider = ({ children }: { children: ReactNode }) => {
-  const [products, setProducts] = useState<ProductDTO[]>([]);
+  // Store the enriched Product objects in state (not raw DTO)
+  const [products, setProducts] = useState<Product[]>([]);
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -48,10 +52,22 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
 
   const [filters, setFiltersState] = useState<Filters>({ concerns: [], skinType: null });
 
+  const [comparisonList, setComparisonList] = useState<Product[]>([]);
+
   const resetError = useCallback(() => {
     setError(null);
     setRetryCount(0);
   }, []);
+
+  // Helper to map ProductDTO -> Product with safe defaults for UI
+  const mapDtoToProduct = (dto: ProductDTO): Product => ({
+    ...dto,
+    skinTypeScore: {},
+    ingredients: [],
+    purchaseLinks: [],
+    reviews: [],
+    regulatoryLabels: [],
+  });
 
   const fetchProducts = useCallback(async (
     pageToFetch: number,
@@ -59,7 +75,7 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
     currentFilters: Filters,
     isLoadMore = false,
     isRetry = false,
-    shouldReplace = false // New parameter to indicate if products should be replaced (for direct page navigation)
+    shouldReplace = false
   ) => {
     if (isLoadMore) setLoadingMore(true);
     else setLoading(true);
@@ -71,7 +87,7 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
       const result = await productService.searchProducts({
          query,
          page: pageToFetch,
-         size: 21, // Changed page size to 21
+         size: 21,
          skinType: currentFilters.skinType || undefined,
          concerns: currentFilters.concerns.length > 0 ? currentFilters.concerns : undefined
        });
@@ -81,13 +97,16 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
         throw new Error('Invalid response format from product API');
       }
 
+      // Map DTOs to full Product objects with defaults expected by UI components
+      const mappedContent: Product[] = pageResult.content.map(mapDtoToProduct);
+
       setProducts(prev => {
         if (shouldReplace) {
-          return pageResult.content; // Replace products entirely for direct page navigation
+          return mappedContent;
         } else if (isLoadMore) {
-          return [...prev, ...pageResult.content]; // Append for load more
+          return [...prev, ...mappedContent];
         } else {
-          return pageResult.content; // Initial fetch or new search/filter
+          return mappedContent;
         }
       });
       setTotalPages(pageResult.totalPages);
@@ -143,12 +162,12 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     setError(null);
     setProducts([]);
-    fetchProducts(0, debouncedSearchQuery, filters, false, false, true); // Initial fetch should replace products
+    fetchProducts(0, debouncedSearchQuery, filters, false, false, true);
   }, [debouncedSearchQuery, filters, fetchProducts]);
 
   const retryFetch = useCallback(async () => {
     resetError();
-    await fetchProducts(page, debouncedSearchQuery, filters, false, false, true); // Retry current page
+    await fetchProducts(page, debouncedSearchQuery, filters, false, false, true);
   }, [page, debouncedSearchQuery, filters, fetchProducts, resetError]);
 
   useEffect(() => {
@@ -183,6 +202,23 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
       fetchProducts(pageNumber, debouncedSearchQuery, filters, false, false, true);
     }
   }, [page, totalPages, debouncedSearchQuery, filters, fetchProducts]);
+
+  const toggleCompare = useCallback((product: Product) => {
+    setComparisonList(prev => {
+      if (prev.some(p => p.id === product.id)) {
+        return prev.filter(p => p.id !== product.id);
+      } else if (prev.length < 2) {
+        return [...prev, product];
+      } else {
+        alert('Bạn chỉ có thể so sánh tối đa 2 sản phẩm.');
+        return prev;
+      }
+    });
+  }, []);
+
+  const clearCompare = useCallback(() => {
+    setComparisonList([]);
+  }, []);
 
   const setFilters = (newFilters: Partial<Filters>) => {
     setFiltersState(prev => ({ ...prev, ...newFilters }));
@@ -232,9 +268,43 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
       searchByBarcode,
       retryFetch,
       isOffline,
-      resetError
+      resetError,
+      comparisonList,
+      toggleCompare,
+      clearCompare
     }}>
       {children}
     </ProductContext.Provider>
   );
+};
+
+export const useProducts = () => {
+  const context = useContext(ProductContext);
+
+  if (context === undefined) {
+    return {
+      products: [],
+      loading: true,
+      loadingMore: false,
+      error: null,
+      page: 0,
+      totalPages: 0,
+      loadMoreProducts: () => {},
+      goToPage: () => {},
+      searchQuery: '',
+      setSearchQuery: () => {},
+      filters: { concerns: [], skinType: null },
+      setFilters: () => {},
+      fetchProductDetails: async () => undefined,
+      searchByBarcode: async () => null,
+      retryFetch: async () => {},
+      isOffline: false,
+      resetError: () => {},
+      comparisonList: [],
+      toggleCompare: () => {},
+      clearCompare: () => {},
+    } as ProductContextType; // Explicitly cast to ProductContextType
+  }
+
+  return context;
 };

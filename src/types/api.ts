@@ -5,10 +5,9 @@ export interface ApiResponse<T> {
   meta?: unknown;
 }
 
-// New: AuthCredentials interface
 export interface AuthCredentials {
   username?: string;
-  email?: string; // Assuming either username or email can be used for login
+  email?: string;
   password: string;
 }
 
@@ -57,7 +56,7 @@ export interface IngredientDTO {
   aliasVi: string;
   descriptionVi: string;
   functions: string;
-  riskLevel: string; // Relaxed to string to avoid mismatches with mock data and external sources
+  riskLevel: string;
   bannedIn: string;
   typicalRange: string;
   sources: string;
@@ -73,7 +72,8 @@ export interface ProfileDTO {
   lifestyle: Record<string, unknown> | null;
 }
 
-export interface FeedbackDTO {
+// Renamed from FeedbackDTO to Feedback to match usage
+export interface Feedback {
   id: number;
   userId: number;
   productId: number;
@@ -133,7 +133,6 @@ export interface AlertDTO {
   createdAt: string;
 }
 
-// --- Added BrandDTO for admin pages ---
 export interface BrandDTO {
   id: number;
   name: string;
@@ -141,12 +140,34 @@ export interface BrandDTO {
   createdAt?: string;
 }
 
+// Added Journal-related types
+export interface JournalPhoto {
+  id: number;
+  entryId: number;
+  imageUrl: string; // The full URL from the backend
+  url?: string; // Optional UI-transformed URL
+}
+
+export interface JournalEntry {
+  id: number;
+  userId: number;
+  date: string;
+  textNote: string;
+  photos: JournalPhoto[];
+}
+
+export interface JournalEntryCreateRequest {
+  userId: number;
+  date: string;
+  textNote: string;
+}
+
 // The fully enhanced Product type that UI components expect
 export interface Product extends ProductDTO {
   skinTypeScore: { [key: string]: number };
   ingredients: (IngredientDTO & { solves?: string[]; notes?: string; })[];
   purchaseLinks: OfferDTO[];
-  reviews: FeedbackDTO[];
+  reviews: Feedback[];
   regulatoryLabels: RegulatoryLabelDTO[];
   recommendationScore?: number;
 }
