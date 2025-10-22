@@ -35,8 +35,13 @@ const Login = () => {
       await login({ email, password });
       navigate('/'); // Corrected: Redirect to home page after successful login
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err ?? 'Đăng nhập thất bại. Vui lòng thử lại.');
-      setLoginError(message || 'Đăng nhập thất bại. Vui lòng thử lại.');
+      let message = 'Đăng nhập thất bại. Vui lòng thử lại.'; // Default error message
+      if (err instanceof Error && (err.message.includes('400') || err.message.toLowerCase().includes('bad request'))) {
+        message = 'Thông tin đăng nhập không chính xác. Vui lòng thử lại.';
+      } else if (err instanceof Error) {
+        message = err.message;
+      }
+      setLoginError(message);
     }
   };
 

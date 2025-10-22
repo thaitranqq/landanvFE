@@ -1,8 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
 import { authService } from '../services/api/AuthService';
-import { API_CONFIG, API_ENDPOINTS } from '../services/api/ApiConfig';
-import type { AuthCredentials, LoginResponse, User } from '../types/api';
+import type { AuthCredentials, User } from '../types/api';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -86,7 +85,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const loginWithGoogle = () => {
-    window.location.href = `${API_CONFIG.BASE_URL}${API_ENDPOINTS.AUTH.GOOGLE}`;
+    window.location.href = 'https://api.ladanv.id.vn/oauth2/authorization/google';
   };
 
   const signup = async (credentials: AuthCredentials & { confirmPassword: string }) => {
