@@ -17,6 +17,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Ensure deployment token secret exists
+        if: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN == '' }}
+        run: |
+          echo "AZURE_STATIC_WEB_APPS_API_TOKEN is not set. Add the deployment token as a repository secret and re-run the workflow."
+          exit 1
+
       - name: Use Node.js 20.19.0
         uses: actions/setup-node@v4
         with:
@@ -43,4 +49,3 @@ jobs:
           app_location: '/' # app repo root
           api_location: ''   # no functions API in this repo; set if you have one
           output_location: 'dist' # Vite build output
-
